@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sky Routes – updated</title>
+    <title>Air Ltd.</title>
+    <link rel="icon" type="image/png" href="https://i.imgur.com/acrSGH7.png">	
     <style>
         *{box-sizing:border-box}
         html,body{margin:0;height:100%;overflow:hidden;font-family:Inter,Arial,sans-serif;background:#111;color:#fff;user-select:none}
@@ -253,7 +254,7 @@
             if(bill>0)toast('Operating costs billed: '+fmt(bill));
             save();
         }
-        if(now-state.lastOfferRefresh>=1500000){generateOffers();state.lastOfferRefresh=now;toast('New contract offers appeared.');if(screen.dataset.mode==='market')showMarket();}
+        if(now-state.lastOfferRefresh>=900000){generateOffers();state.lastOfferRefresh=now;toast('New contract offers appeared.');if(screen.dataset.mode==='market')showMarket();}
         if(state.goldSince && now-state.goldSince>=5*60*60*1000){state.won=true;document.getElementById('winScreen').style.display='flex';}
         if(state.money<0){state.lost=true;document.getElementById('gameOver').style.display='flex';}
         drawPlanes(); drawRoutes(); updateHUD();
