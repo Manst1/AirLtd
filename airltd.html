@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sky Routes – updated</title>
+    <style>
+        *{box-sizing:border-box}
+        html,body{margin:0;height:100%;overflow:hidden;font-family:Inter,Arial,sans-serif;background:#111;color:#fff;user-select:none}
+        #game{display:flex;width:100vw;height:100vh;background:#0e1724}
+        #sidebar{width:340px;min-width:340px;height:100vh;background:linear-gradient(180deg,#101723,#172233);border-right:2px solid rgba(255,255,255,.12);padding:16px;overflow-y:auto;z-index:20;box-shadow:8px 0 22px rgba(0,0,0,.35)}
+        h1{font-size:25px;line-height:1;margin:0 0 10px;letter-spacing:.4px}
+        h2{font-size:15px;text-transform:uppercase;letter-spacing:.12em;color:#9fb6d8;margin:18px 0 8px}
+        .moneyBox{background:linear-gradient(135deg,#15263b,#203754);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 8px 22px rgba(0,0,0,.22)}
+        .money{font-size:32px;font-weight:800;color:#84ffc1;text-shadow:0 0 12px rgba(132,255,193,.15)}
+        .small{font-size:12px;color:#aab7c8;line-height:1.35}
+        .hint{background:rgba(255,255,255,.06);border-left:4px solid #ffd36f;padding:9px 10px;border-radius:9px;margin:10px 0;color:#e9eef7;font-size:12px;line-height:1.35}
+        .planeCard{display:grid;grid-template-columns:62px 1fr;gap:10px;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;margin:8px 0;padding:8px;cursor:grab;transition:.15s ease}
+        .planeCard:active{cursor:grabbing}
+        .planeCard.dragging{opacity:.45;transform:scale(.98)}
+        .planeCard:hover{transform:translateY(-1px);background:rgba(255,255,255,.1)}
+        .planeCard.locked{opacity:.65}
+        .planeThumb{width:62px;height:45px;object-fit:contain;filter:drop-shadow(0 5px 5px rgba(0,0,0,.35))}
+        .planeName{font-weight:800;font-size:13px;color:#fff}
+        .planeStats{font-size:11px;color:#b7c5d9;line-height:1.35;margin-top:2px}
+        .price{color:#84ffc1;font-weight:800}
+        button{width:100%;border:0;border-radius:11px;padding:10px 12px;margin:6px 0;cursor:pointer;font-weight:800;color:#101723;background:#ffd36f;box-shadow:0 5px 0 #b98e2b;transition:.1s ease}
+        button:active{transform:translateY(3px);box-shadow:0 2px 0 #b98e2b}
+        button.secondary{background:#9fc7ff;box-shadow:0 5px 0 #4777b9}
+        button.danger{background:#ff8080;box-shadow:0 5px 0 #a83d3d;color:#fff}
+        button.green{background:#77f2aa;box-shadow:0 5px 0 #30925b}
+        #mapWrap{position:relative;flex:1;height:100vh;overflow:hidden;background:#0b1220}
+        #mapImg{position:absolute;display:block;max-width:none;pointer-events:none;filter:saturate(1.05) contrast(1.03)}
+        #overlay{position:absolute;inset:0;pointer-events:none;z-index:5}
+        #cityLayer,#planeLayer{position:absolute;inset:0;z-index:8;pointer-events:none}
+        .cityDot{position:absolute;width:12px;height:12px;border-radius:50%;background:#ffdf5d;border:2px solid #1a1a1a;transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(255,223,93,.24),0 2px 7px rgba(0,0,0,.4);z-index:9;pointer-events:auto;cursor:pointer}
+        .cityDot:hover{background:#fff;box-shadow:0 0 0 8px rgba(255,255,255,.22)}
+        .cityDot.dropTarget{background:#fff;box-shadow:0 0 0 10px rgba(132,255,193,.38),0 2px 7px rgba(0,0,0,.4)}
+        .plane{position:absolute;transform:translate3d(-50%,-50%,0);z-index:12;cursor:pointer;pointer-events:auto;border-radius:10px;padding:2px}
+        .plane.selected{outline:2px solid #ffd36f;background:rgba(255,211,111,.22)}
+        .plane img{display:block;object-fit:contain;filter:drop-shadow(0 7px 7px rgba(0,0,0,.5));pointer-events:none}
+        .planeTag{position:absolute;left:50%;top:100%;transform:translateX(-50%);background:rgba(0,0,0,.72);font-size:10px;line-height:1;padding:3px 6px;border-radius:20px;color:#fff;white-space:nowrap;margin-top:2px;pointer-events:none}
+        .hide-plane-tag .planeTag { display: none; }
+        #toast{position:absolute;left:360px;top:18px;background:rgba(0,0,0,.78);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:12px 15px;z-index:50;opacity:0;transform:translateY(-10px);transition:.25s ease;max-width:420px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+        #toast.show{opacity:1;transform:translateY(0)}
+        #screen{position:absolute;inset:0 0 0 340px;background:rgba(8,13,22,.94);z-index:30;display:none;padding:26px;overflow:auto}
+        #screen.show{display:block}
+        .screenTop{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px}
+        .screenTop h1{font-size:34px;margin:0}
+        .grid{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:16px}
+        .offer{background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.045));border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:14px;box-shadow:0 12px 28px rgba(0,0,0,.28); transition: background .15s}
+        .offer.highlight { background: #b78d2f !important; border-color: #ffd966; }
+        .routePics{display:grid;grid-template-columns:1fr 44px 1fr;align-items:center;gap:10px;margin-bottom:10px}
+        .offerCity{min-width:0;text-align:center}
+        .cityPic{height:105px;border-radius:14px;background:#222;object-fit:cover;width:100%;border:1px solid rgba(255,255,255,.13)}
+        .offerCityName{font-size:16px;font-weight:900;margin-top:7px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .arrow{font-size:31px;text-align:center;color:#ffd36f;font-weight:900}
+        .offerTitle{font-size:20px;font-weight:900;margin:4px 0 9px}.offerNums{display:flex;gap:10px;flex-wrap:wrap;color:#dfe8f5;font-size:14px}.pill{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:6px 9px}.pay{color:#84ffc1;font-weight:900}.cost{color:#ffadad;font-weight:900}
+        .offer-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .offer-actions button { 
+            flex: 1;
+            min-width: 100px;
+            padding: 10px 16px; 
+            font-size: 14px; 
+            font-weight: 800;
+            box-shadow: 0 4px 0 #b98e2b; 
+            margin: 0;
+            border-radius: 10px;
+        }
+        .offer-actions button.highlight-btn {
+            background: #e6b800;
+            box-shadow: 0 4px 0 #996600;
+            color: #101723;
+        }
+        .offer-actions button.highlight-btn:hover {
+            background: #f5c400;
+        }
+        #gameOver,#winScreen{position:absolute;inset:0;z-index:100;background:rgba(5,8,12,.94);display:none;align-items:center;justify-content:center;text-align:center;padding:30px}.endCard{max-width:600px;background:#142033;border:1px solid rgba(255,255,255,.15);border-radius:24px;padding:35px;box-shadow:0 20px 60px rgba(0,0,0,.5)}.endCard h1{font-size:48px;margin:0 0 12px}.endCard p{font-size:18px;color:#cbd8e8}
+    </style>
+</head>
+<body>
+<div id="game">
+    <aside id="sidebar">
+        <h1>Sky Routes</h1>
+        <div class="moneyBox">
+            <div class="small">Money</div>
+            <div class="money" id="money">€2,000</div>
+            <div class="small" id="fleetInfo">0 planes owned</div>
+            <div class="small" id="costInfo">Operating costs billed every minute (new formula: base 0.3 + price/speed/1000 per plane)</div>
+        </div>
+        <div class="hint"><b>Controls:</b> Drag a plane from the shop onto a city to buy and place it. Click a plane, then click cities to queue routes. Press <b>S</b> for new contracts, <b>O</b> for your accepted contracts, <b>M</b> for the map.</div>
+        <button class="secondary" id="contractsBtn">Open Contract Market (S)</button>
+        <button class="green" id="activeBtn">Accepted Contracts (O)</button>
+        <div class="hint" style="margin-top:10px">
+            <label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="routeToggle" type="checkbox" style="width:18px;height:18px;accent-color:#ffd36f"><span><b>Show flight paths for all planes</b><br><span class="small">Off = selected plane only</span></span></label>
+            <label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin-top:6px"><input id="nameToggle" type="checkbox" style="width:18px;height:18px;accent-color:#ffd36f"><span><b>Hide plane names</b><br><span class="small">Toggle labels above aircraft</span></span></label>
+        </div>
+        <h2>Buy planes</h2>
+        <div id="shop"></div>
+        <h2>Tools</h2>
+        <button class="danger" id="deleteBtn">Delete Plane Mode</button>
+        <button class="secondary" id="saveBtn">Save Game</button>
+        <button class="danger" id="resetBtn">Reset Game</button>
+    </aside>
+    <main id="mapWrap">
+        <img id="mapImg" src="https://i.imgur.com/GZZGltf.jpeg" alt="Europe map" />
+        <svg id="overlay"></svg>
+        <div id="cityLayer"></div>
+        <div id="planeLayer"></div>
+        <div id="toast"></div>
+    </main>
+</div>
+<div id="screen"></div>
+<div id="gameOver"><div class="endCard"><h1>Game Over</h1><p>Your airline ran out of money.</p><button onclick="hardReset()">Restart</button></div></div>
+<div id="winScreen"><div class="endCard"><h1>You Win!</h1><p>You owned the Mega-Ultra-Giga-Gold-Jet for 5 real-life hours.</p><button onclick="hardReset()">Play Again</button></div></div>
+<script>
+    const MAP_URL='https://i.imgur.com/GZZGltf.jpeg';
+    const cityData=[
+        ['Reykjavik',111,133,2,'https://i.imgur.com/nqgxDJR.png'],['Tromsø',754,42,1,'https://i.imgur.com/tfStUXI.png'],['Bergen',524,282,2,'https://i.imgur.com/jY9LdpK.png'],['Oslo',614,302,4,'https://i.imgur.com/TLGrZfv.png'],['Copenhagen',636,414,3,'https://i.imgur.com/eHzkXur.png'],['Stockholm',722,316,3,'https://i.imgur.com/MUJQ8G1.png'],['Helsinki',849,280,3,'https://i.imgur.com/v1N2Rj8.png'],['Moscow',1033,399,5,'https://i.imgur.com/e98AsMM.png'],['Kyiv',943,563,3,'https://i.imgur.com/luf9WBP.png'],['Minsk',883,465,1,'https://i.imgur.com/w5gNwZe.png'],['Warsaw',767,510,2,'https://i.imgur.com/VKpU4Em.png'],['Hamburg',578,478,3,'https://i.imgur.com/vJ9LZGh.png'],['Amsterdam',476,505,4,'https://i.imgur.com/rVOgBkm.jpeg'],['London',395,525,5,'https://i.imgur.com/73RgxIO.jpeg'],['Dublin',277,458,3,'https://i.imgur.com/O9L60ni.jpeg'],['Lisbon',118,867,3,'https://i.imgur.com/MMtds6t.jpeg'],['Madrid',236,831,5,'https://i.imgur.com/vx5vFsD.png'],['Barcelona',358,821,3,'https://i.imgur.com/euXwrZM.jpeg'],['Rome',602,809,4,'https://i.imgur.com/TwEnrrM.jpeg'],['Paris',412,620,5,'https://i.imgur.com/kuzCE8y.jpeg'],['Prague',652,573,2,'https://i.imgur.com/dXA5NwE.png'],['Berlin',639,510,4,'https://i.imgur.com/NzJ3J3A.jpeg'],['Munich',590,639,2,'https://i.imgur.com/QwZvx1V.jpeg'],['Salzburg',634,662,2,'https://i.imgur.com/fyJ16ED.jpeg'],['Zagreb',685,699,2,'https://i.imgur.com/WQ7FMPh.png'],['Vienna',685,637,5,'https://i.imgur.com/4JmfQSa.png'],['Budapest',747,657,3,'https://i.imgur.com/u3o27gO.jpeg'],['Bucharest',866,724,1,'https://i.imgur.com/3cgAGlO.jpeg'],['Sofia',823,771,1,'https://i.imgur.com/8DhPb5K.png'],['Skopje',786,803,2,'https://i.imgur.com/JhLYmHJ.jpeg'],['Tirana',750,832,2,'https://i.imgur.com/qNiw79Y.png'],['Athens',828,921,4,'https://i.imgur.com/B2lNtH8.jpeg'],['Istanbul',921,823,4,'https://i.imgur.com/TRITEvj.png'],['Nicosia',1004,972,2,'https://i.imgur.com/CJk8WZu.png']
+    ];
+    const cities=cityData.map(([name,x,y,score,img],i)=>({id:i,name,x,y,score,img}));
+    const planeTypes=[
+        {name:'McFly 100',img:'https://i.imgur.com/MnLeVxj.png',speed:1.7,cap:2,price:800,size:44},
+        {name:'Blue Rustbucket',img:'https://i.imgur.com/Cbn6LjM.png',speed:2.1,cap:4,price:1500,size:50},
+        {name:'Dusty Eagle G5',img:'https://i.imgur.com/3536AOo.png',speed:2.9,cap:10,price:2800,size:58},
+        {name:'Stormflyer',img:'https://i.imgur.com/3JukPe8.png',speed:3.9,cap:18,price:4000,size:66},
+        {name:'Silver Liner',img:'https://i.imgur.com/nrRxxu8.png',speed:4.9,cap:25,price:8000,size:76},
+        {name:'Airbus 1',img:'https://i.imgur.com/P2nFQXM.png',speed:7.1,cap:40,price:18000,size:88},
+        {name:'Airbus 2',img:'https://i.imgur.com/6jT0fw3.png',speed:9.5,cap:80,price:65000,size:98},
+        {name:'Airbus 3',img:'https://i.imgur.com/wx81o5Q.png',speed:12.5,cap:150,price:95000,size:106},
+        {name:'Gulfstream 5',img:'https://i.imgur.com/eNki4I2.png',speed:15.4,cap:15,price:500000,size:84},
+        {name:'Mega-Ultra-Giga-Gold-Jet',img:'https://i.imgur.com/DiKp6Wl.png',speed:33,cap:25,price:6000000,size:95,gold:true}
+    ];
+    let state={
+        money:3500, planes:[], selected:null, buying:null, deleteMode:false,
+        offers:[], activeOffers:[], lastOfferRefresh:Date.now(),
+        lastOperatingBill:Date.now(), pendingOperatingCost:0,
+        routeMode:'selected', hideNames:false,
+        goldSince:null, won:false, lost:false, nextPlaneId:1
+    };
+    let sourceWidth=1100, sourceHeight=1000;
+    let layout={x:0,y:0,w:1,h:1,scaleX:1,scaleY:1,visualScale:1};
+    const mapImg=document.getElementById('mapImg'), mapWrap=document.getElementById('mapWrap'), cityLayer=document.getElementById('cityLayer'), planeLayer=document.getElementById('planeLayer'), overlay=document.getElementById('overlay'), screen=document.getElementById('screen');
+    function fmt(n){return '€'+Math.round(n).toLocaleString('en-US')}
+    function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+    function city(id){return cities[id]}
+    function cityScreen(c){return {x:c.x/sourceWidth*layout.w,y:c.y/sourceHeight*layout.h}}
+    function screenToMap(px,py){return {x:px/layout.w*sourceWidth,y:py/layout.h*sourceHeight}}
+    function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2600)}
+    function resize(){
+        const cw=mapWrap.clientWidth, ch=mapWrap.clientHeight;
+        layout={x:0,y:0,w:cw,h:ch,scaleX:cw/sourceWidth,scaleY:ch/sourceHeight,visualScale:Math.min(cw/sourceWidth,ch/sourceHeight)};
+        Object.assign(mapImg.style,{width:cw+'px',height:ch+'px',left:'0px',top:'0px'});
+        drawCities(); drawPlanes(); drawRoutes();
+    }
+    mapImg.onload=()=>{
+        if(mapImg.naturalWidth&&mapImg.naturalHeight){sourceWidth=mapImg.naturalWidth;sourceHeight=mapImg.naturalHeight;}
+        resize();
+    };
+    if(mapImg.complete&&mapImg.naturalWidth){sourceWidth=mapImg.naturalWidth;sourceHeight=mapImg.naturalHeight;}
+    window.addEventListener('resize',resize);
+    function drawCities(){cityLayer.innerHTML=''; cities.forEach(c=>{let p=cityScreen(c);let d=document.createElement('div');d.className='cityDot';d.dataset.cityId=c.id;d.style.left=p.x+'px';d.style.top=p.y+'px';d.title=c.name;d.onclick=e=>{e.stopPropagation(); handleCityClick(c.id)};cityLayer.appendChild(d);});}
+    function renderShop(){const shop=document.getElementById('shop');shop.innerHTML='';planeTypes.forEach((p,i)=>{let card=document.createElement('div');card.className='planeCard'+(state.money<p.price?' locked':'');card.draggable=true;card.dataset.typeId=i;card.title='Drag onto a city to buy and place';card.innerHTML=`<img class="planeThumb" src="${p.img}"><div><div class="planeName">${p.name}</div><div class="planeStats">Speed: ${p.speed} px/s · Capacity: ${p.cap}<br><span class="price">${fmt(p.price)}</span></div></div>`;card.addEventListener('dragstart',e=>{state.deleteMode=false;state.selected=null;state.buying=null;card.classList.add('dragging');e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('text/plain',String(i));toast('Drop '+p.name+' onto a city.');drawPlanes();drawRoutes();});card.addEventListener('dragend',()=>{card.classList.remove('dragging');clearDropTargets();});shop.appendChild(card);});}
+    function updateHUD(){document.getElementById('money').textContent=fmt(state.money);document.getElementById('fleetInfo').textContent=`${state.planes.length} planes owned · ${state.activeOffers.length} active contracts`;renderShop();}
+    function occupiedCity(cityId, ignorePlaneId=null){return state.planes.some(p=>p.id!==ignorePlaneId && !p.inAir && p.currentCity===cityId)}
+    function reservedCity(cityId, ignorePlaneId=null){return state.planes.some(p=>p.id!==ignorePlaneId && p.inAir && p.destCity===cityId && p.queue.length===0)}
+    function blocked(cityId, planeId){return occupiedCity(cityId,planeId)||reservedCity(cityId,planeId)}
+    function handleCityClick(cityId){
+        if(state.lost||state.won) return;
+        const sel=state.planes.find(p=>p.id===state.selected); if(!sel){toast('Click a plane first, then choose a destination.');return;}
+        if(sel.currentCity===cityId && !sel.inAir){toast('This plane is already there.');return;}
+        sel.queue.push(cityId); toast(`${sel.typeName} queued for ${city(cityId).name}`); save(); drawRoutes();
+    }
+    function buyPlaneAt(typeId,cityId){
+        const t=planeTypes[typeId]; if(state.money<t.price){toast('Not enough money.');return;} if(occupiedCity(cityId)||reservedCity(cityId)){toast('This airport is already occupied or reserved.');return;}
+        state.money-=t.price; const c=city(cityId); const p={id:state.nextPlaneId++,type:typeId,typeName:t.name,x:c.x,y:c.y,currentCity:cityId,inAir:false,destCity:null,fromCity:null,queue:[],img:t.img,speed:t.speed,cap:t.cap,price:t.price,size:t.size};
+        state.planes.push(p); if(t.gold && !state.goldSince) state.goldSince=Date.now(); state.buying=null; state.selected=p.id; toast(t.name+' placed in '+c.name); save(); updateHUD(); drawPlanes(); drawRoutes();
+    }
+    function drawPlanes(){
+        const liveIds=new Set(state.planes.map(p=>String(p.id)));
+        planeLayer.querySelectorAll('.plane').forEach(el=>{if(!liveIds.has(el.dataset.planeId))el.remove();});
+        state.planes.forEach(p=>{
+            let el=planeLayer.querySelector(`.plane[data-plane-id="${p.id}"]`);
+            if(!el){
+                el=document.createElement('div');
+                el.className='plane';
+                el.dataset.planeId=p.id;
+                el.innerHTML=`<img src="${p.img}"><div class="planeTag">#${p.id} ${p.typeName}</div>`;
+                planeLayer.appendChild(el);
+            }
+            const pos=cityScreen(p);
+            el.classList.toggle('selected',state.selected===p.id);
+            el.style.left=pos.x+'px';
+            el.style.top=pos.y+'px';
+            const img=el.querySelector('img');
+            img.src=p.img;
+            img.style.width=Math.max(32,p.size*layout.visualScale/1.4)+'px';
+            img.style.height=Math.max(24,p.size*layout.visualScale/1.8)+'px';
+            const tag=el.querySelector('.planeTag');
+            tag.textContent=`#${p.id} ${p.typeName}`;
+        });
+        // apply name toggle
+        planeLayer.classList.toggle('hide-plane-tag', state.hideNames);
+    }
+    function drawRoutes(){
+        overlay.setAttribute('width',mapWrap.clientWidth);overlay.setAttribute('height',mapWrap.clientHeight);overlay.innerHTML='';
+        const planesToDraw=state.routeMode==='all'?state.planes:state.planes.filter(p=>p.id===state.selected);
+        planesToDraw.forEach(p=>{
+            let points=[{x:p.x,y:p.y}];
+            if(p.inAir && p.destCity!==null) points.push(city(p.destCity));
+            p.queue.forEach(id=>points.push(city(id)));
+            if(points.length<2)return;
+            const isSelected=p.id===state.selected;
+            for(let i=0;i<points.length-1;i++){
+                let a=cityScreen(points[i]),b=cityScreen(points[i+1]);
+                let line=document.createElementNS('http://www.w3.org/2000/svg','line');
+                line.setAttribute('x1',a.x);line.setAttribute('y1',a.y);line.setAttribute('x2',b.x);line.setAttribute('y2',b.y);
+                line.setAttribute('stroke',isSelected?'#ffd36f':'rgba(235,241,250,.72)');
+                line.setAttribute('stroke-width',isSelected?'2.2':'1.6');line.setAttribute('stroke-dasharray','6 7');line.setAttribute('stroke-linecap','round');line.setAttribute('fill','none');
+                overlay.appendChild(line);
+            }
+        });
+    }
+    function deletePlane(id){const idx=state.planes.findIndex(p=>p.id===id); if(idx<0)return; const p=state.planes[idx]; state.money+=p.price*.10; state.planes.splice(idx,1); if(state.selected===id)state.selected=null; if(!state.planes.some(x=>planeTypes[x.type].gold)) state.goldSince=null; toast(`Deleted ${p.typeName}. Refund: ${fmt(p.price*.10)}`); save();updateHUD();drawPlanes();drawRoutes();}
+    function maybeStartNext(p){if(p.inAir||p.queue.length===0||p.currentCity===null)return; const next=p.queue[0]; if(blocked(next,p.id)) return; p.queue.shift(); p.fromCity=p.currentCity;p.destCity=next;p.inAir=true;p.currentCity=null;}
+    function computeFee(plane){
+        // new fee: 0.3 + (price / speed / 1000)
+        return 0.3 + (plane.price / plane.speed / 1000);
+    }
+    function tick(dt){
+        if(state.lost||state.won)return;
+        state.planes.forEach(maybeStartNext);
+        state.planes.forEach(p=>{
+            if(p.inAir){
+                const target=city(p.destCity); const step=p.speed*dt;
+                const d=Math.hypot(target.x-p.x,target.y-p.y);
+                // accumulate fee based on new formula (per second)
+                state.pendingOperatingCost += computeFee(p) * dt;
+                if(d<=step){p.x=target.x;p.y=target.y;p.inAir=false;p.currentCity=p.destCity;const dep=p.fromCity,arr=p.destCity;p.destCity=null;p.fromCity=null;completeOffers(dep,arr);maybeStartNext(p);}
+                else{p.x+=(target.x-p.x)/d*step;p.y+=(target.y-p.y)/d*step;}
+            } else {
+                // same fee regardless of ground/air
+                state.pendingOperatingCost += computeFee(p) * dt;
+            }
+        });
+        const now=Date.now();
+        if(now-state.lastOperatingBill>=60000){
+            const bill=state.pendingOperatingCost||0;
+            state.money-=bill;
+            state.pendingOperatingCost=0;
+            const elapsedMinutes=Math.floor((now-state.lastOperatingBill)/60000);
+            state.lastOperatingBill+=Math.max(1,elapsedMinutes)*60000;
+            if(bill>0)toast('Operating costs billed: '+fmt(bill));
+            save();
+        }
+        if(now-state.lastOfferRefresh>=1500000){generateOffers();state.lastOfferRefresh=now;toast('New contract offers appeared.');if(screen.dataset.mode==='market')showMarket();}
+        if(state.goldSince && now-state.goldSince>=5*60*60*1000){state.won=true;document.getElementById('winScreen').style.display='flex';}
+        if(state.money<0){state.lost=true;document.getElementById('gameOver').style.display='flex';}
+        drawPlanes(); drawRoutes(); updateHUD();
+    }
+    function completeOffers(dep,arr){let paid=0, done=[];state.activeOffers=state.activeOffers.filter(o=>{if(o.from===dep&&o.to===arr){paid+=o.payment;done.push(o);return false;}return true;});if(paid>0){state.money+=paid;toast(`Contract completed: ${city(dep).name} → ${city(arr).name}. Payment: ${fmt(paid)}`);}}
+    function weightedCity(){let pool=[];cities.forEach(c=>{for(let i=0;i<c.score;i++)pool.push(c.id)});return pool[Math.floor(Math.random()*pool.length)]}
+    function makeOffer(){let a=weightedCity(),b=weightedCity();while(b===a)b=weightedCity();let d=dist(city(a),city(b));return {id:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),from:a,to:b,price:Math.round(d*1.5*(.80+Math.random()*.31)),payment:Math.round(d*3.74*(.70+Math.random()*.95)),distance:Math.round(d)};}
+    function generateOffers(){state.offers=[makeOffer(),makeOffer(),makeOffer(),makeOffer()];state.lastOfferRefresh=Date.now();save();}
+    function offerHTML(o,button=true, highlight=false, showHighlightBtn=false){
+        let a=city(o.from),b=city(o.to);
+        let highlightClass = highlight ? 'highlight' : '';
+        let highlightBtn = showHighlightBtn ? `<button class="highlight-btn" onclick="highlightOffer('${o.id}')">⭐ Highlight</button>` : '';
+        let buyBtn = button ? `<button onclick="buyOffer('${o.id}')">Buy Contract</button>` : '';
+        return `<div class="offer ${highlightClass}" data-offer-id="${o.id}"><div class="routePics"><div class="offerCity"><img class="cityPic" src="${a.img}" alt="${a.name}"><div class="offerCityName">${a.name}</div></div><div class="arrow">→</div><div class="offerCity"><img class="cityPic" src="${b.img}" alt="${b.name}"><div class="offerCityName">${b.name}</div></div></div><div class="offerNums"><span class="pill">Distance: ${o.distance}px</span><span class="pill cost">Cost: ${fmt(o.price)}</span><span class="pill pay">Payment: ${fmt(o.payment)}</span></div>${(button || showHighlightBtn) ? `<div class="offer-actions">${buyBtn}${highlightBtn}</div>` : ''}</div>`;
+    }
+    window.highlightOffer = function(id){
+        const container = screen.querySelector(`.offer[data-offer-id="${id}"]`);
+        if(container) {
+            container.classList.toggle('highlight');
+        }
+    };
+    function showMarket(){screen.dataset.mode='market';screen.className='show';let remain=Math.max(0,1500000-(Date.now()-state.lastOfferRefresh));screen.innerHTML=`<div class="screenTop"><h1>Contract Market</h1><div><button onclick="showMap()">Back to Map (M)</button><button class="secondary" onclick="refreshOffers()">Refresh offers for €1,500</button><div class="small">Automatic refresh in ${Math.ceil(remain/60000)} min</div></div></div><div class="grid">${state.offers.map(o=>offerHTML(o,true,false,false)).join('')}</div>`;}
+    function showActive(){screen.dataset.mode='active';screen.className='show';screen.innerHTML=`<div class="screenTop"><h1>Accepted Contracts</h1><button onclick="showMap()">Back to Map (M)</button></div>${state.activeOffers.length?`<div class="grid">${state.activeOffers.map(o=>offerHTML(o,false,false,true)).join('')}</div>`:'<div class="hint">No accepted contracts yet. Press S to buy some.</div>'}`;}
+    function showMap(){screen.className='';screen.dataset.mode='map'}
+    window.buyOffer=function(id){let i=state.offers.findIndex(o=>o.id===id);if(i<0)return;let o=state.offers[i];if(state.money<o.price){toast('Not enough money for this contract.');return;}state.money-=o.price;state.activeOffers.push(o);state.offers[i]=makeOffer();toast('Contract accepted: '+city(o.from).name+' → '+city(o.to).name);save();updateHUD();showMarket();}
+    window.refreshOffers=function(){if(state.money<1500){toast('Not enough money to refresh offers.');return;}state.money-=1500;generateOffers();toast('All offers refreshed.');updateHUD();showMarket();}
+    function save(){localStorage.setItem('skyRoutesSave',JSON.stringify(state));}
+    function load(){
+        try{const s=JSON.parse(localStorage.getItem('skyRoutesSave'));if(s&&typeof s.money==='number'){state={...state,...s};}}catch(e){}
+        if(!state.offers||state.offers.length!==4)generateOffers();
+        if(!Number.isFinite(state.pendingOperatingCost))state.pendingOperatingCost=0;
+        if(!state.lastOperatingBill)state.lastOperatingBill=state.lastGroundBill||Date.now();
+        if(state.routeMode!=='all')state.routeMode='selected';
+        if(typeof state.hideNames !== 'boolean') state.hideNames = false;
+        state.planes.forEach(p=>{const t=planeTypes[p.type];if(t){p.speed=t.speed;p.cap=t.cap;p.price=t.price;p.img=t.img;p.typeName=t.name;p.size=t.size;}});
+    }
+    window.hardReset=function(){localStorage.removeItem('skyRoutesSave');location.reload();}
+    document.getElementById('contractsBtn').onclick=showMarket;document.getElementById('activeBtn').onclick=showActive;
+    const routeToggle=document.getElementById('routeToggle');routeToggle.checked=state.routeMode==='all';routeToggle.addEventListener('change',()=>{state.routeMode=routeToggle.checked?'all':'selected';drawRoutes();save();});
+    const nameToggle=document.getElementById('nameToggle');nameToggle.checked=state.hideNames;nameToggle.addEventListener('change',()=>{state.hideNames=nameToggle.checked;drawPlanes();save();});
+    document.getElementById('deleteBtn').onclick=()=>{state.deleteMode=!state.deleteMode;state.buying=null;toast(state.deleteMode?'Delete mode: click a plane to sell it permanently.':'Delete mode off.');};
+    document.getElementById('saveBtn').onclick=()=>{save();toast('Game saved.');};
+    document.getElementById('resetBtn').onclick=()=>{if(confirm('Really reset the whole game?'))hardReset();};
+    let suppressMapDeselect=false;
+    planeLayer.addEventListener('pointerdown',e=>{
+        const el=e.target.closest('.plane');
+        if(!el)return;
+        e.preventDefault();
+        e.stopPropagation();
+        suppressMapDeselect=true;
+        const id=Number(el.dataset.planeId);
+        const p=state.planes.find(x=>x.id===id);
+        if(!p)return;
+        if(state.deleteMode){deletePlane(id);return;}
+        state.selected=id;state.buying=null;
+        toast('Selected '+p.typeName+'. Click cities to queue flights.');
+        drawPlanes();drawRoutes();
+    });
+    mapWrap.addEventListener('click',e=>{
+        if(suppressMapDeselect){suppressMapDeselect=false;return;}
+        if(e.target.closest&&e.target.closest('.plane,.cityDot'))return;
+        if(state.selected!==null){state.selected=null;drawPlanes();drawRoutes();}
+    });
+    function clearDropTargets(){document.querySelectorAll('.cityDot.dropTarget').forEach(el=>el.classList.remove('dropTarget'));}
+    function nearestCityFromClient(clientX,clientY){const r=mapWrap.getBoundingClientRect();const m=screenToMap(clientX-r.left,clientY-r.top);let near=null,best=Infinity;cities.forEach(c=>{const d=Math.hypot(c.x-m.x,c.y-m.y);if(d<best){best=d;near=c;}});return near&&best<28?near:null;}
+    mapWrap.addEventListener('dragover',e=>{if(!e.dataTransfer.types.includes('text/plain'))return;e.preventDefault();e.dataTransfer.dropEffect='copy';clearDropTargets();const near=nearestCityFromClient(e.clientX,e.clientY);if(near){const dot=cityLayer.querySelector(`[data-city-id="${near.id}"]`);if(dot)dot.classList.add('dropTarget');}});
+    mapWrap.addEventListener('dragleave',e=>{if(!mapWrap.contains(e.relatedTarget))clearDropTargets();});
+    mapWrap.addEventListener('drop',e=>{e.preventDefault();clearDropTargets();const raw=e.dataTransfer.getData('text/plain');const typeId=Number(raw);if(!Number.isInteger(typeId)||!planeTypes[typeId])return;const near=nearestCityFromClient(e.clientX,e.clientY);if(!near){toast('Drop the plane directly onto a city.');return;}buyPlaneAt(typeId,near.id);});
+    let cheat='';window.addEventListener('keydown',e=>{if(e.key==='s'||e.key==='S')showMarket(); if(e.key==='o'||e.key==='O')showActive(); if(e.key==='m'||e.key==='M')showMap(); if(e.key.length===1){cheat=(cheat+e.key.toLowerCase()).slice(-20); if(cheat.includes('haakonviii')){state.money+=10000000;cheat='';toast('Cheat activated: +€10,000,000');save();updateHUD();}}});
+    load();routeToggle.checked=state.routeMode==='all';nameToggle.checked=state.hideNames;resize();drawCities();drawPlanes();updateHUD();let last=performance.now();function loop(now){let dt=Math.min(.05,(now-last)/1000);last=now;tick(dt);requestAnimationFrame(loop)}requestAnimationFrame(loop);setInterval(save,5000);
+</script>
+</body>
+</html>
