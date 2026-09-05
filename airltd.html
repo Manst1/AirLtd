@@ -270,14 +270,16 @@
         let buyBtn = button ? `<button onclick="buyOffer('${o.id}')">Buy Contract</button>` : '';
         return `<div class="offer ${highlightClass}" data-offer-id="${o.id}"><div class="routePics"><div class="offerCity"><img class="cityPic" src="${a.img}" alt="${a.name}"><div class="offerCityName">${a.name}</div></div><div class="arrow">→</div><div class="offerCity"><img class="cityPic" src="${b.img}" alt="${b.name}"><div class="offerCityName">${b.name}</div></div></div><div class="offerNums"><span class="pill">Distance: ${o.distance}px</span><span class="pill cost">Cost: ${fmt(o.price)}</span><span class="pill pay">Payment: ${fmt(o.payment)}</span></div>${(button || showHighlightBtn) ? `<div class="offer-actions">${buyBtn}${highlightBtn}</div>` : ''}</div>`;
     }
-    window.highlightOffer = function(id){
-        const container = screen.querySelector(`.offer[data-offer-id="${id}"]`);
-        if(container) {
-            container.classList.toggle('highlight');
-        }
-    };
+window.highlightOffer = function(id){
+    const offer = state.activeOffers.find(o => o.id === id);
+    if (!offer) return;
+
+    offer.highlighted = !offer.highlighted;
+    save();
+    showActive();
+};
     function showMarket(){screen.dataset.mode='market';screen.className='show';let remain=Math.max(0,900000-(Date.now()-state.lastOfferRefresh));screen.innerHTML=`<div class="screenTop"><h1>Contract Market</h1><div><button onclick="showMap()">Back to Map (M)</button><button class="secondary" onclick="refreshOffers()">Refresh offers for €1,500</button><div class="small">Automatic refresh in ${Math.ceil(remain/60000)} min</div></div></div><div class="grid">${state.offers.map(o=>offerHTML(o,true,false,false)).join('')}</div>`;}
-    function showActive(){screen.dataset.mode='active';screen.className='show';screen.innerHTML=`<div class="screenTop"><h1>Accepted Contracts</h1><button onclick="showMap()">Back to Map (M)</button></div>${state.activeOffers.length?`<div class="grid">${state.activeOffers.map(o=>offerHTML(o,false,false,true)).join('')}</div>`:'<div class="hint">No accepted contracts yet. Press S to buy some.</div>'}`;}
+    function showActive(){screen.dataset.mode='active';screen.className='show';screen.innerHTML=`<div class="screenTop"><h1>Accepted Contracts</h1><button onclick="showMap()">Back to Map (M)</button></div>${state.activeOffers.length?`<div class="grid">${state.activeOffers.map(o=>offerHTML(o,false,o.highlighted === true,true)).join('')}</div>`:'<div class="hint">No accepted contracts yet. Press S to buy some.</div>'}`;}
     function showMap(){screen.className='';screen.dataset.mode='map'}
     window.buyOffer=function(id){let i=state.offers.findIndex(o=>o.id===id);if(i<0)return;let o=state.offers[i];if(state.money<o.price){toast('Not enough money for this contract.');return;}state.money-=o.price;state.activeOffers.push(o);state.offers[i]=makeOffer();toast('Contract accepted: '+city(o.from).name+' → '+city(o.to).name);save();updateHUD();showMarket();}
     window.refreshOffers=function(){if(state.money<1500){toast('Not enough money to refresh offers.');return;}state.money-=1500;generateOffers();toast('All offers refreshed.');updateHUD();showMarket();}
