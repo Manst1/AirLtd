@@ -48,6 +48,11 @@
         #screen.show{display:block}
         .screenTop{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px}
         .screenTop h1{font-size:34px;margin:0}
+        .screenControls{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;margin:0 0 18px}
+        .screenToggle{display:flex;align-items:center;gap:10px;min-width:270px;flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:13px;padding:11px 13px;cursor:pointer}
+        .screenToggle input{width:19px;height:19px;flex:0 0 auto;accent-color:#ffd36f}
+        .screenToggleText{font-size:13px;line-height:1.25;color:#eef4ff}
+        .screenToggleText .small{display:block;margin-top:2px}
         .grid{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:16px}
         .offer{background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.045));border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:14px;box-shadow:0 12px 28px rgba(0,0,0,.28); transition: background .15s}
         .offer.highlight { background: #b78d2f !important; border-color: #ffd966; }
@@ -137,6 +142,7 @@
         offers:[], activeOffers:[], lastOfferRefresh:Date.now(),
         lastOperatingBill:Date.now(), pendingOperatingCost:0,
         routeMode:'selected', hideNames:false,
+        activeSortAlphabetical:false, hidePlanes:false, visiblePlaneWhenHidden:null,
         goldSince:null, won:false, lost:false, nextPlaneId:1
     };
     let sourceWidth=1100, sourceHeight=1000;
@@ -190,6 +196,8 @@
                 planeLayer.appendChild(el);
             }
             const pos=cityScreen(p);
+            const planeIsVisible=!state.hidePlanes || p.id===state.visiblePlaneWhenHidden;
+            el.style.display=planeIsVisible?'':'none';
             el.classList.toggle('selected',state.selected===p.id);
             el.style.left=pos.x+'px';
             el.style.top=pos.y+'px';
@@ -279,7 +287,33 @@ window.highlightOffer = function(id){
     showActive();
 };
     function showMarket(){screen.dataset.mode='market';screen.className='show';let remain=Math.max(0,900000-(Date.now()-state.lastOfferRefresh));screen.innerHTML=`<div class="screenTop"><h1>Contract Market</h1><div><button onclick="showMap()">Back to Map (M)</button><button class="secondary" onclick="refreshOffers()">Refresh offers for €1,500</button><div class="small">Automatic refresh in ${Math.ceil(remain/60000)} min</div></div></div><div class="grid">${state.offers.map(o=>offerHTML(o,true,false,false)).join('')}</div>`;}
-    function showActive(){screen.dataset.mode='active';screen.className='show';screen.innerHTML=`<div class="screenTop"><h1>Accepted Contracts</h1><button onclick="showMap()">Back to Map (M)</button></div>${state.activeOffers.length?`<div class="grid">${state.activeOffers.map(o=>offerHTML(o,false,o.highlighted === true,true)).join('')}</div>`:'<div class="hint">No accepted contracts yet. Press S to buy some.</div>'}`;}
+    function activeOffersForDisplay(){
+        const offers=[...state.activeOffers];
+        if(state.activeSortAlphabetical){
+            offers.sort((a,b)=>city(a.from).name.localeCompare(city(b.from).name,undefined,{sensitivity:'base'}) || city(a.to).name.localeCompare(city(b.to).name,undefined,{sensitivity:'base'}));
+        }
+        return offers;
+    }
+    function showActive(){
+        screen.dataset.mode='active';screen.className='show';
+        const visiblePlane=state.planes.find(p=>p.id===state.visiblePlaneWhenHidden);
+        const hideDescription=state.hidePlanes
+            ? (visiblePlane?`Only #${visiblePlane.id} ${visiblePlane.typeName} remains visible.`:'All planes are hidden.')
+            : 'All planes are visible normally.';
+        const offers=activeOffersForDisplay();
+        screen.innerHTML=`<div class="screenTop"><h1>Accepted Contracts</h1><button onclick="showMap()">Back to Map (M)</button></div>
+        <div class="screenControls">
+            <label class="screenToggle"><input type="checkbox" ${state.activeSortAlphabetical?'checked':''} onchange="toggleActiveSort(this.checked)"><span class="screenToggleText"><b>Alphabetical departure order</b><span class="small">Off = original accepted-contract order</span></span></label>
+            <label class="screenToggle"><input type="checkbox" ${state.hidePlanes?'checked':''} onchange="togglePlaneVisibility(this.checked)"><span class="screenToggleText"><b>Hide planes on the map</b><span class="small">${hideDescription}</span></span></label>
+        </div>
+        ${offers.length?`<div class="grid">${offers.map(o=>offerHTML(o,false,o.highlighted === true,true)).join('')}</div>`:'<div class="hint">No accepted contracts yet. Press S to buy some.</div>'}`;
+    }
+    window.toggleActiveSort=function(enabled){state.activeSortAlphabetical=enabled;save();showActive();}
+    window.togglePlaneVisibility=function(enabled){
+        state.hidePlanes=enabled;
+        state.visiblePlaneWhenHidden=enabled?state.selected:null;
+        save();drawPlanes();showActive();
+    }
     function showMap(){screen.className='';screen.dataset.mode='map'}
     window.buyOffer=function(id){let i=state.offers.findIndex(o=>o.id===id);if(i<0)return;let o=state.offers[i];if(state.money<o.price){toast('Not enough money for this contract.');return;}state.money-=o.price;state.activeOffers.push(o);state.offers[i]=makeOffer();toast('Contract accepted: '+city(o.from).name+' → '+city(o.to).name);save();updateHUD();showMarket();}
     window.refreshOffers=function(){if(state.money<1500){toast('Not enough money to refresh offers.');return;}state.money-=1500;generateOffers();toast('All offers refreshed.');updateHUD();showMarket();}
@@ -291,6 +325,9 @@ window.highlightOffer = function(id){
         if(!state.lastOperatingBill)state.lastOperatingBill=state.lastGroundBill||Date.now();
         if(state.routeMode!=='all')state.routeMode='selected';
         if(typeof state.hideNames !== 'boolean') state.hideNames = false;
+        if(typeof state.activeSortAlphabetical !== 'boolean')state.activeSortAlphabetical=false;
+        if(typeof state.hidePlanes !== 'boolean')state.hidePlanes=false;
+        if(!state.planes.some(p=>p.id===state.visiblePlaneWhenHidden))state.visiblePlaneWhenHidden=null;
         state.planes.forEach(p=>{const t=planeTypes[p.type];if(t){p.speed=t.speed;p.cap=t.cap;p.price=t.price;p.img=t.img;p.typeName=t.name;p.size=t.size;}});
     }
     window.hardReset=function(){localStorage.removeItem('skyRoutesSave');location.reload();}
